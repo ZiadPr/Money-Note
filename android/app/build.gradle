@@ -2,15 +2,17 @@ apply plugin: 'com.android.application'
 
 android {
     namespace = "com.moneynote.budget"
-    compileSdk = rootProject.ext.compileSdkVersion
+    // تأكد إن الـ compileSdk هو 34 أو 35 لضمان توافق المكتبات الجديدة
+    compileSdk = 34 
 
     defaultConfig {
         applicationId "com.moneynote.budget"
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion 26 // أندرويد 8.0 لضمان تشغيل كل الميزات
+        targetSdkVersion 34 
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
         aaptOptions {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
@@ -24,19 +26,24 @@ android {
     }
 
     compileOptions {
+        // تحديث لـ Java 17 ليتوافق مع الـ Build Stack اللي شفناه في اللوج
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
-    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.appcompat:appcompat:1.6.1"
     implementation "androidx.biometric:biometric:1.1.0"
-    implementation "androidx.core:core-ktx:$androidxCoreVersion"
-    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
-    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "androidx.core:core-ktx:1.12.0"
+    // استخدم الإصدار المستقر مباشرة لضمان حل مشكلة الـ Crash
+    implementation "androidx.core:core-splashscreen:1.0.1" 
+    implementation "androidx.webkit:webkit:1.9.0"
 
-    testImplementation "junit:junit:$junitVersion"
-    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
-    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    testImplementation "junit:junit:4.13.2"
+    androidTestImplementation "androidx.test.ext:junit:1.1.5"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
+    
+    // إضافة ملفات الـ SMS والـ Helpers اللي في مشروعك
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 }
