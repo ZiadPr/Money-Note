@@ -2,9 +2,9 @@
   "apps": [
     {
       "appId": "d14cc7bf",
-      "root": ".",
+      "root": "android",
       "android": {
-        "path": "android"
+        "path": "."
       }
     }
   ]
