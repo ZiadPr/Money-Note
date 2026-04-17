@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#091224</color>
+    <color name="colorPrimaryDark">#060D1A</color>
+    <color name="colorAccent">#3B82F6</color>
+    <color name="appShellBackground">#091224</color>
+    <color name="brandLauncherBlue">#1B74E4</color>
+    <color name="brandSplashBackground">#F5F7FB</color>
+</resources>

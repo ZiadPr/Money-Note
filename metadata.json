@@ -1,0 +1,6 @@
+{
+  "name": "Daily Budget Planner",
+  "description": "A personal budget and daily allowance calculator that helps you track income, expenses, and debts to determine your safe daily spending limit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
