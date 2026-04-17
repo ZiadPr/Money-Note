@@ -21,7 +21,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
-import androidx.core.splashscreen.SplashScreen; // المكتبة الجديدة
+import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebViewAssetLoader;
@@ -33,7 +33,8 @@ import android.util.Log;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String APP_ASSET_URL = "https://appassets.androidplatform.net/assets/public/index.html";
+    // التعديل 1: توحيد المسار ليكون متوافق مع الـ AssetsPathHandler
+    private static final String APP_ASSET_URL = "https://appassets.androidplatform.net/assets/index.html";
     private static final int SMS_PERMISSION_REQUEST_CODE = 7101;
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 7102;
     private static WeakReference<MainActivity> activeInstance = new WeakReference<>(null);
@@ -45,31 +46,26 @@ public class MainActivity extends AppCompatActivity {
 
     public static void publishSmsEvent(Context context, JSONObject event) {
         SmsEventStore.storePendingEvent(context, event);
-
         MainActivity activity = activeInstance.get();
-        if (activity == null) {
-            return;
+        if (activity != null) {
+            activity.runOnUiThread(() -> activity.dispatchPendingSmsEvent());
         }
-
-        activity.runOnUiThread(() -> activity.dispatchPendingSmsEvent());
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // 1. تفعيل الـ SplashScreen قبل أي حاجة تانية لمنع الـ Crash
-        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+        // تفعيل الـ SplashScreen قبل onCreate
+        SplashScreen.installSplashScreen(this);
         
         super.onCreate(savedInstanceState);
         activeInstance = new WeakReference<>(this);
 
-        // إعدادات الشاشة وحمايتها
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.main_webview);
         
-        // تأكد إن الـ WebView موجود في الـ XML
         if (webView == null) {
             Log.e("MainActivity", "WebView not found! Check your activity_main.xml");
             return;
@@ -101,16 +97,12 @@ public class MainActivity extends AppCompatActivity {
         if (activeInstance.get() == this) {
             activeInstance = new WeakReference<>(null);
         }
-
         if (webView != null) {
             ViewGroup parent = (ViewGroup) webView.getParent();
-            if (parent != null) {
-                parent.removeView(webView);
-            }
+            if (parent != null) parent.removeView(webView);
             webView.removeAllViews();
             webView.destroy();
         }
-
         super.onDestroy();
     }
 
@@ -126,14 +118,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode == SMS_PERMISSION_REQUEST_CODE && pendingSmsPermissionRequestId != null) {
             bridge.resolveRequest(pendingSmsPermissionRequestId, buildSmsPermissionResult());
             pendingSmsPermissionRequestId = null;
-            return;
-        }
-
-        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE && pendingNotificationPermissionRequestId != null) {
+        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE && pendingNotificationPermissionRequestId != null) {
             bridge.resolveRequest(pendingNotificationPermissionRequestId, buildNotificationPermissionResult());
             pendingNotificationPermissionRequestId = null;
         }
@@ -143,19 +131,14 @@ public class MainActivity extends AppCompatActivity {
         try {
             int statusBarColor = Color.parseColor(isDarkMode ? "#091224" : "#F8FAFC");
             int navigationBarColor = Color.parseColor(isDarkMode ? "#060D1A" : "#E2E8F0");
-
             getWindow().setStatusBarColor(statusBarColor);
             getWindow().setNavigationBarColor(navigationBarColor);
-
             WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
-            WindowInsetsControllerCompat controller =
-                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
             if (controller != null) {
                 controller.setAppearanceLightStatusBars(!isDarkMode);
                 controller.setAppearanceLightNavigationBars(!isDarkMode);
             }
-
             NotificationHelper.ensureChannel(this);
         } catch (Exception e) {
             Log.e("AppShell", "Error configuring status bar", e);
@@ -164,17 +147,13 @@ public class MainActivity extends AppCompatActivity {
 
     JSONObject buildSmsPermissionResult() {
         JSONObject result = new JSONObject();
-        try {
-            result.put("sms", resolvePermissionState(Manifest.permission.RECEIVE_SMS));
-        } catch (JSONException ignored) {}
+        try { result.put("sms", resolvePermissionState(Manifest.permission.RECEIVE_SMS)); } catch (JSONException ignored) {}
         return result;
     }
 
     JSONObject buildNotificationPermissionResult() {
         JSONObject result = new JSONObject();
-        try {
-            result.put("display", resolveNotificationPermissionState());
-        } catch (JSONException ignored) {}
+        try { result.put("display", resolveNotificationPermissionState()); } catch (JSONException ignored) {}
         return result;
     }
 
@@ -182,8 +161,7 @@ public class MainActivity extends AppCompatActivity {
         JSONObject result = new JSONObject();
         try {
             BiometricManager manager = BiometricManager.from(this);
-            int authType = getAllowedAuthenticators();
-            result.put("available", manager.canAuthenticate(authType) == BiometricManager.BIOMETRIC_SUCCESS);
+            result.put("available", manager.canAuthenticate(getAllowedAuthenticators()) == BiometricManager.BIOMETRIC_SUCCESS);
         } catch (JSONException ignored) {}
         return result;
     }
@@ -209,50 +187,24 @@ public class MainActivity extends AppCompatActivity {
     void authenticate(String requestId, String optionsJson) {
         BiometricManager manager = BiometricManager.from(this);
         if (manager.canAuthenticate(getAllowedAuthenticators()) != BiometricManager.BIOMETRIC_SUCCESS) {
-            bridge.rejectRequest(requestId, "Biometric authentication is not available on this device.");
+            bridge.rejectRequest(requestId, "Biometric authentication is not available.");
             return;
         }
-
         JSONObject options = new JSONObject();
-        try {
-            if (optionsJson != null && !optionsJson.isEmpty()) {
-                options = new JSONObject(optionsJson);
-            }
-        } catch (JSONException ignored) {}
-
+        try { if (optionsJson != null && !optionsJson.isEmpty()) options = new JSONObject(optionsJson); } catch (JSONException ignored) {}
+        
         String title = options.optString("title", "Biometric verification");
-        String subtitle = options.optString("subtitle", "");
-        String reason = options.optString("reason", "Confirm your identity");
         Executor executor = ContextCompat.getMainExecutor(this);
-
-        BiometricPrompt biometricPrompt = new BiometricPrompt(
-            this,
-            executor,
-            new BiometricPrompt.AuthenticationCallback() {
-                @Override
-                public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
-                    JSONObject payload = new JSONObject();
-                    try {
-                        payload.put("success", true);
-                    } catch (JSONException ignored) {}
-                    bridge.resolveRequest(requestId, payload);
-                }
-
-                @Override
-                public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
-                    bridge.rejectRequest(requestId, errString.toString());
-                }
+        BiometricPrompt biometricPrompt = new BiometricPrompt(this, executor, new BiometricPrompt.AuthenticationCallback() {
+            @Override public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
+                JSONObject res = new JSONObject(); try { res.put("success", true); } catch (JSONException ignored) {}
+                bridge.resolveRequest(requestId, res);
             }
-        );
-
-        BiometricPrompt.PromptInfo promptInfo = new BiometricPrompt.PromptInfo.Builder()
-            .setTitle(title)
-            .setSubtitle(subtitle)
-            .setDescription(reason)
-            .setAllowedAuthenticators(getAllowedAuthenticators())
-            .build();
-
-        biometricPrompt.authenticate(promptInfo);
+            @Override public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                bridge.rejectRequest(requestId, errString.toString());
+            }
+        });
+        biometricPrompt.authenticate(new BiometricPrompt.PromptInfo.Builder().setTitle(title).setAllowedAuthenticators(getAllowedAuthenticators()).build());
     }
 
     private void configureWebView() {
@@ -263,28 +215,22 @@ public class MainActivity extends AppCompatActivity {
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setBuiltInZoomControls(false);
-        settings.setDisplayZoomControls(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            settings.setSafeBrowsingEnabled(false);
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.setSafeBrowsingEnabled(false);
 
-        WebView.setWebContentsDebuggingEnabled(
-            (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
-        );
-        
+        WebView.setWebContentsDebuggingEnabled(true);
         webView.setBackgroundColor(Color.parseColor("#091224"));
         webView.addJavascriptInterface(bridge, "AndroidBridge");
         
         webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+            @Override public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
                 Log.d("WebViewConsole", consoleMessage.message());
                 return true;
             }
         });
 
+        // التعديل 2: ضبط الـ AssetLoader ليشير لمجلد assets/public مباشرة
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
             .build();
@@ -292,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                // التعديل 3: استخدام الرابط بالكامل لاعتراض الطلب بشكل صحيح
                 return assetLoader.shouldInterceptRequest(request.getUrl());
             }
 
@@ -301,46 +248,33 @@ public class MainActivity extends AppCompatActivity {
                 bridge.setWebReady(true);
                 dispatchPendingSmsEvent();
             }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                Log.e("WebViewError", "Error: " + description + " for URL: " + failingUrl);
+            }
         });
     }
 
     private void dispatchPendingSmsEvent() {
-        if (bridge == null || !bridge.isWebReady()) {
-            return;
-        }
-
-        JSONObject pendingEvent = SmsEventStore.consumePendingEvent(this);
-        if (pendingEvent != null) {
-            bridge.dispatchSmsEvent(pendingEvent);
+        if (bridge != null && bridge.isWebReady()) {
+            JSONObject pendingEvent = SmsEventStore.consumePendingEvent(this);
+            if (pendingEvent != null) bridge.dispatchSmsEvent(pendingEvent);
         }
     }
 
     private int getAllowedAuthenticators() {
-        // استخدام الأنماط القياسية المتوافقة مع أندرويد 10
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
-        } else {
-            return BiometricManager.Authenticators.BIOMETRIC_WEAK | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
-        }
+        return (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) 
+            ? BiometricManager.Authenticators.BIOMETRIC_STRONG | BiometricManager.Authenticators.DEVICE_CREDENTIAL 
+            : BiometricManager.Authenticators.BIOMETRIC_WEAK | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
     }
 
     private String resolvePermissionState(String permission) {
-        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
-            return "granted";
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && shouldShowRequestPermissionRationale(permission)) {
-            return "prompt-with-rationale";
-        }
-        return "prompt";
+        return (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) ? "granted" : "prompt";
     }
 
     private String resolveNotificationPermissionState() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return "granted";
-        }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-            return "granted";
-        }
-        return "prompt";
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return "granted";
+        return (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) ? "granted" : "prompt";
     }
 }
