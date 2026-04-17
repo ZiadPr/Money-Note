@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     namespace = "com.moneynote.budget"
-    // تأكد إن الـ compileSdk هو 34 أو 35 لضمان توافق المكتبات الجديدة
+    // الـ compileSdk 34 ضروري جداً لتوافق مكتبة الـ SplashScreen و Webkit
     compileSdk = 34 
 
     defaultConfig {
         applicationId "com.moneynote.budget"
-        minSdkVersion 26 // أندرويد 8.0 لضمان تشغيل كل الميزات
+        minSdkVersion 26 
         targetSdkVersion 34 
         versionCode 1
         versionName "1.0"
@@ -26,24 +26,34 @@ android {
     }
 
     compileOptions {
-        // تحديث لـ Java 17 ليتوافق مع الـ Build Stack اللي شفناه في اللوج
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
+    // 1. المايسترو: السطر ده بيوحد نسخ Kotlin لمنع خطأ الـ Duplicate Class اللي ظهرلك
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.22"))
+
+    // 2. المكتبات الأساسية (بنسخ مستقرة متوافقة مع Java 17)
     implementation "androidx.appcompat:appcompat:1.6.1"
     implementation "androidx.biometric:biometric:1.1.0"
     implementation "androidx.core:core-ktx:1.12.0"
-    // استخدم الإصدار المستقر مباشرة لضمان حل مشكلة الـ Crash
     implementation "androidx.core:core-splashscreen:1.0.1" 
     implementation "androidx.webkit:webkit:1.9.0"
 
+    // 3. التست والمكتبات المحلية
     testImplementation "junit:junit:4.13.2"
     androidTestImplementation "androidx.test.ext:junit:1.1.5"
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
-    
-    // إضافة ملفات الـ SMS والـ Helpers اللي في مشروعك
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+// 4. الضربة القاضية: إجبار الـ Gradle على استبدال أي نسخة Kotlin قديمة بالنسخة الحديثة
+configurations.all {
+    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+        if (details.requested.group == 'org.jetbrains.kotlin') {
+            details.useVersion "1.8.22"
+        }
+    }
 }
